@@ -25,6 +25,7 @@ public class PendingGoalsFragment extends Fragment {
     private final List<Goal> pendingGoals = new ArrayList<>();
     private DatabaseReference goalsRef;
     private String userId;
+    private ValueEventListener goalsListener;
 
     public PendingGoalsFragment() {}
     @Override
@@ -50,7 +51,7 @@ public class PendingGoalsFragment extends Fragment {
         recyclerGoals.setAdapter(goalAdapter);
     }
     private void loadPendingGoals() {
-        goalsRef.addValueEventListener(new ValueEventListener() {
+        goalsListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 pendingGoals.clear();
@@ -64,13 +65,16 @@ public class PendingGoalsFragment extends Fragment {
             }
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
+                if (!isAdded() || FirebaseAuth.getInstance().getCurrentUser() == null) return;
                 Toast.makeText(getContext(),
                         "Failed to load pending goals",
                         Toast.LENGTH_SHORT).show();
             }
-        });
+        };
+        goalsRef.addValueEventListener(goalsListener);
     }
     private void updateUI() {
+        if (!isAdded()) return;
         goalAdapter.updateList(pendingGoals);
         if (pendingGoals.isEmpty()) {
             recyclerGoals.setVisibility(View.GONE);
@@ -79,5 +83,12 @@ public class PendingGoalsFragment extends Fragment {
             recyclerGoals.setVisibility(View.VISIBLE);
             layoutEmptyState.setVisibility(View.GONE);
         }
+    }
+    @Override
+    public void onDestroyView() {
+        if (goalsRef != null && goalsListener != null) {
+            goalsRef.removeEventListener(goalsListener);
+        }
+        super.onDestroyView();
     }
 }

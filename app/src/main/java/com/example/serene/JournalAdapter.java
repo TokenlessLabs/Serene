@@ -6,6 +6,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.FragmentActivity;
@@ -60,21 +61,22 @@ public class JournalAdapter extends RecyclerView.Adapter<JournalAdapter.ViewHold
             }
         });
         holder.btnFavorite.setOnClickListener(v -> {
-            j.isFavorite = !j.isFavorite;
-            if (j.isFavorite) {
-                holder.btnFavorite.setImageResource(R.drawable.favorite_filled);
-            } else {
-                holder.btnFavorite.setImageResource(R.drawable.favorite);
-            }
-            String userId = FirebaseAuth.getInstance()
-                    .getCurrentUser()
-                    .getUid();
+            if (FirebaseAuth.getInstance().getCurrentUser() == null) return;
+            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+            boolean newFavoriteValue = !j.isFavorite;
             DatabaseReference ref = FirebaseDatabase.getInstance()
                     .getReference("users")
                     .child(userId)
                     .child("journals")
                     .child(j.id);
-            ref.child("isFavorite").setValue(j.isFavorite);
+            ref.child("isFavorite").setValue(newFavoriteValue)
+                    .addOnSuccessListener(unused -> {
+                        j.isFavorite = newFavoriteValue;
+                        holder.btnFavorite.setImageResource(j.isFavorite
+                                ? R.drawable.favorite_filled : R.drawable.favorite);
+                    })
+                    .addOnFailureListener(error -> Toast.makeText(v.getContext(),
+                            "Failed to update favorite", Toast.LENGTH_SHORT).show());
         });
     }
     public void updateList(List<Journal> newList) {

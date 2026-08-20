@@ -1,5 +1,6 @@
 package com.example.serene;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
@@ -15,6 +16,7 @@ import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.*;
 
 import java.text.SimpleDateFormat;
@@ -59,7 +61,15 @@ public class HomeFragment extends Fragment {
         moodAnxious = view.findViewById(R.id.moodAnxious);
         moodCalm = view.findViewById(R.id.moodCalm);
         moodStressed = view.findViewById(R.id.moodStressed);
-        userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Intent intent = new Intent(requireContext(), Login.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            requireActivity().finish();
+            return view;
+        }
+        userId = currentUser.getUid();
         db = FirebaseDatabase.getInstance().getReference("users").child(userId);
         btnStartPomodoro = view.findViewById(R.id.btnStartPomodoro);
         loadingOverlay = view.findViewById(R.id.loadingOverlay);
@@ -89,7 +99,7 @@ public class HomeFragment extends Fragment {
                 if (!TextUtils.isEmpty(username)) {
                     int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
                     String greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-                    tvGreeting.setText(greeting + ", " + username);
+                    tvGreeting.setText(greeting + ",\n" + username);
                 }
                 stopLoading();
             }
@@ -165,7 +175,15 @@ public class HomeFragment extends Fragment {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 int happy = 0, sad = 0, anxious = 0, calm = 0, stressed = 0;
+                Calendar startOfWeek = Calendar.getInstance();
+                startOfWeek.add(Calendar.DAY_OF_YEAR, -6);
+                String firstDayKey = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                        .format(startOfWeek.getTime());
                 for (DataSnapshot daySnap : snapshot.getChildren()) {
+                    String dayKey = daySnap.getKey();
+                    if (dayKey == null || dayKey.compareTo(firstDayKey) < 0 || dayKey.compareTo(todayKey) > 0) {
+                        continue;
+                    }
                     String mood = daySnap.getValue(String.class);
                     if (mood == null) continue;
                     switch (mood) {

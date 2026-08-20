@@ -99,6 +99,10 @@ public class SettingsFragment extends Fragment {
         btnSave.setOnClickListener(v -> saveSettings());
     }
     private void saveSettings() {
+        if (userRef == null || auth.getCurrentUser() == null) {
+            Toast.makeText(getContext(), "Please sign in again", Toast.LENGTH_SHORT).show();
+            return;
+        }
         String username = etUsername.getText().toString().trim();
         String newPin = etPin.getText().toString().trim();
         if (TextUtils.isEmpty(username)) {
@@ -248,7 +252,8 @@ public class SettingsFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        AvatarManager.loadInto(getView().findViewById(R.id.imgAvatar));
+        View view = getView();
+        if (view != null) AvatarManager.loadInto(view.findViewById(R.id.imgAvatar));
     }
 
 }

@@ -26,6 +26,7 @@ public class CompletedGoalsFragment extends Fragment {
     private final List<Goal> completedGoals = new ArrayList<>();
     private DatabaseReference goalsRef;
     private String userId;
+    private ValueEventListener goalsListener;
     public CompletedGoalsFragment() {}
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -48,7 +49,7 @@ public class CompletedGoalsFragment extends Fragment {
         recyclerView.setAdapter(adapter);
     }
     private void loadCompletedGoals() {
-        goalsRef.addValueEventListener(new ValueEventListener() {
+        goalsListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 completedGoals.clear();
@@ -62,13 +63,16 @@ public class CompletedGoalsFragment extends Fragment {
             }
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
+                if (!isAdded() || FirebaseAuth.getInstance().getCurrentUser() == null) return;
                 Toast.makeText(getContext(),
                         "Failed to load completed goals",
                         Toast.LENGTH_SHORT).show();
             }
-        });
+        };
+        goalsRef.addValueEventListener(goalsListener);
     }
     private void updateUI() {
+        if (!isAdded()) return;
         adapter.updateList(completedGoals);
         if (completedGoals.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
@@ -77,5 +81,12 @@ public class CompletedGoalsFragment extends Fragment {
             recyclerView.setVisibility(View.VISIBLE);
             emptyState.setVisibility(View.GONE);
         }
+    }
+    @Override
+    public void onDestroyView() {
+        if (goalsRef != null && goalsListener != null) {
+            goalsRef.removeEventListener(goalsListener);
+        }
+        super.onDestroyView();
     }
 }

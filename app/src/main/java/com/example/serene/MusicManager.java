@@ -11,6 +11,10 @@ public class MusicManager {
     public static void play(Context context, int resId) {
         stop();
         mediaPlayer = MediaPlayer.create(context, resId);
+        if (mediaPlayer == null) {
+            currentTrack = -1;
+            return;
+        }
         mediaPlayer.setLooping(true);
         mediaPlayer.start();
         currentTrack = resId;

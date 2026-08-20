@@ -27,6 +27,7 @@ public class OverdueGoalsFragment extends Fragment {
     private final List<Goal> overdueGoals = new ArrayList<>();
     private DatabaseReference goalsRef;
     private String userId;
+    private ValueEventListener goalsListener;
     public OverdueGoalsFragment() {}
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -49,7 +50,7 @@ public class OverdueGoalsFragment extends Fragment {
         recyclerView.setAdapter(adapter);
     }
     private void loadOverdueGoals() {
-        goalsRef.addValueEventListener(new ValueEventListener() {
+        goalsListener = new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 overdueGoals.clear();
@@ -63,13 +64,16 @@ public class OverdueGoalsFragment extends Fragment {
             }
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
+                if (!isAdded() || FirebaseAuth.getInstance().getCurrentUser() == null) return;
                 Toast.makeText(getContext(),
                         "Failed to load overdue goals",
                         Toast.LENGTH_SHORT).show();
             }
-        });
+        };
+        goalsRef.addValueEventListener(goalsListener);
     }
     private void updateUI() {
+        if (!isAdded()) return;
         adapter.updateList(overdueGoals);
         if (overdueGoals.isEmpty()) {
             recyclerView.setVisibility(View.GONE);
@@ -78,5 +82,12 @@ public class OverdueGoalsFragment extends Fragment {
             recyclerView.setVisibility(View.VISIBLE);
             emptyState.setVisibility(View.GONE);
         }
+    }
+    @Override
+    public void onDestroyView() {
+        if (goalsRef != null && goalsListener != null) {
+            goalsRef.removeEventListener(goalsListener);
+        }
+        super.onDestroyView();
     }
 }

@@ -15,6 +15,8 @@ import com.google.firebase.auth.FirebaseUser;
 
 public class MainActivity extends AppCompatActivity {
     ImageView logo;
+    private final Handler handler = new Handler();
+    private Runnable launchRunnable;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -22,17 +24,24 @@ public class MainActivity extends AppCompatActivity {
         logo = findViewById(R.id.logo);
         Animation fadeIn = AnimationUtils.loadAnimation(this, R.anim.logo_fade_in);
         logo.startAnimation(fadeIn);
-        new Handler().postDelayed(() -> {
+        launchRunnable = () -> {
             SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
             boolean onboardingDone = prefs.getBoolean("onboarding_done", false);
             Intent intent;
-            if (!onboardingDone || false) {
+            if (!onboardingDone) {
                 intent = new Intent(MainActivity.this, OnboardingScreen.class);
             } else {
                 intent = new Intent(MainActivity.this, Login.class);
             }
             startActivity(intent);
             finish();
-        }, 3000);
+        };
+        handler.postDelayed(launchRunnable, 3000);
+    }
+
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacks(launchRunnable);
+        super.onDestroy();
     }
 }

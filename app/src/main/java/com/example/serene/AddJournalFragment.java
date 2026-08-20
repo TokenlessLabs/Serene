@@ -11,6 +11,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -120,12 +121,21 @@ public class AddJournalFragment extends Fragment {
             etContent.setError("Please write something");
             return;
         }
-        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(getContext(), "Please sign in again", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String userId = currentUser.getUid();
         DatabaseReference ref = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(userId)
                 .child("journals");
         String journalId = ref.push().getKey();
+        if (journalId == null) {
+            Toast.makeText(getContext(), "Unable to create journal", Toast.LENGTH_SHORT).show();
+            return;
+        }
         Journal journal = new Journal(
                 title,
                 content,

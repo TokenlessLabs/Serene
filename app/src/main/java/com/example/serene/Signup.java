@@ -111,11 +111,16 @@ public class Signup extends AppCompatActivity {
                         Map<String, Object> user = new HashMap<>();
                         user.put("username", username);
                         user.put("email", email);
-                        ref.setValue(user);
-                        Toast.makeText(this, "Account created successfully!", Toast.LENGTH_SHORT).show();
-                        Intent intent = new Intent(Signup.this, AvatarSelectionActivity.class);
-                        startActivity(intent);
-                        finish();
+                        ref.setValue(user)
+                                .addOnSuccessListener(unused -> {
+                                    Toast.makeText(this, "Account created successfully!", Toast.LENGTH_SHORT).show();
+                                    Intent intent = new Intent(Signup.this, AvatarSelectionActivity.class);
+                                    startActivity(intent);
+                                    finish();
+                                })
+                                .addOnFailureListener(error -> Toast.makeText(this,
+                                        "Account created, but profile setup failed",
+                                        Toast.LENGTH_SHORT).show());
                     }
                     else {
                         Toast.makeText(this,

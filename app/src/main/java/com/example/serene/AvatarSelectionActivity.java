@@ -12,6 +12,9 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class AvatarSelectionActivity extends AppCompatActivity {
     private AvatarView avatarView;
     private boolean isEditMode = false;
@@ -36,20 +39,30 @@ public class AvatarSelectionActivity extends AppCompatActivity {
         Button btnLetsGo = findViewById(R.id.btnLetsGo);
         Button btnSkip = findViewById(R.id.btnSkip);
         View.OnClickListener goToHome = v -> {
+            if (FirebaseAuth.getInstance().getCurrentUser() == null) {
+                Intent intent = new Intent(this, Login.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                startActivity(intent);
+                finish();
+                return;
+            }
             String uid = FirebaseAuth.getInstance().getCurrentUser().getUid();
             DatabaseReference ref = FirebaseDatabase.getInstance()
                     .getReference("users")
                     .child(uid)
                     .child("avatar");
-            ref.child("eyes").setValue(eyesList[eyesIndex]);
-            ref.child("mouth").setValue(mouthList[mouthIndex]);
-            ref.child("accessory").setValue(accessories[accessoryIndex]);
-            if (isEditMode) {
-                finish();
-            } else {
-                startActivity(new Intent(this, HomeActivity.class));
-                finish();
-            }
+            Map<String, Object> avatar = new HashMap<>();
+            avatar.put("eyes", eyesList[eyesIndex]);
+            avatar.put("mouth", mouthList[mouthIndex]);
+            avatar.put("accessory", accessories[accessoryIndex]);
+            ref.updateChildren(avatar).addOnSuccessListener(unused -> {
+                if (isEditMode) {
+                    finish();
+                } else {
+                    startActivity(new Intent(this, HomeActivity.class));
+                    finish();
+                }
+            });
         };
         btnLetsGo.setOnClickListener(goToHome);
         btnSkip.setOnClickListener(goToHome);

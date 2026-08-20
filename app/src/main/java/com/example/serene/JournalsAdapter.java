@@ -13,7 +13,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class JournalsAdapter extends RecyclerView.Adapter<JournalsAdapter.VH> {
 
@@ -82,12 +84,13 @@ public class JournalsAdapter extends RecyclerView.Adapter<JournalsAdapter.VH> {
         );
 
         h.delete.setOnClickListener(v -> {
-            ref.child(j.id).removeValue();
-            int position = h.getAdapterPosition();
-            if (position != RecyclerView.NO_POSITION) {
-                list.remove(position);
-                notifyItemRemoved(position);
-            }
+            ref.child(j.id).removeValue().addOnSuccessListener(unused -> {
+                int position = h.getAdapterPosition();
+                if (position != RecyclerView.NO_POSITION) {
+                    list.remove(position);
+                    notifyItemRemoved(position);
+                }
+            });
         });
 
         h.edit.setOnClickListener(v -> {
@@ -137,13 +140,13 @@ public class JournalsAdapter extends RecyclerView.Adapter<JournalsAdapter.VH> {
                         }
                     }
 
-                    ref.child(j.id).child("title").setValue(newTitle);
-                    ref.child(j.id).child("content").setValue(newContent);
-                    ref.child(j.id).child("isFavorite").setValue(fav);
-
-                    ref.child(j.id).child("themes").setValue(themesList);
-
-                    dialog.dismiss();
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("title", newTitle);
+                    updates.put("content", newContent);
+                    updates.put("isFavorite", fav);
+                    updates.put("themes", themesList);
+                    ref.child(j.id).updateChildren(updates)
+                            .addOnSuccessListener(unused -> dialog.dismiss());
                 });
             });
 

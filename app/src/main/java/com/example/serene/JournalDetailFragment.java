@@ -1,5 +1,6 @@
 package com.example.serene;
 
+import android.app.AlertDialog;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -9,17 +10,13 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-
-import java.util.Random;
 
 public class JournalDetailFragment extends Fragment {
     TextView tvTitle, tvDate, tvContent, tvNoThemes;
@@ -28,6 +25,7 @@ public class JournalDetailFragment extends Fragment {
     TextView btnFavorite;
     boolean isFavorite = false;
     String journalId;
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -42,44 +40,46 @@ public class JournalDetailFragment extends Fragment {
         if (getArguments() != null) {
             journalId = getArguments().getString("journalId");
         }
+        if (journalId == null || journalId.isEmpty()) {
+            getParentFragmentManager().popBackStack();
+            return view;
+        }
         loadJournal();
-        btnDelete.setOnClickListener(v -> {
-            if (FirebaseAuth.getInstance().getCurrentUser() == null) return;
-            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-            DatabaseReference ref = FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(userId)
-                    .child("journals")
-                    .child(journalId);
-            ref.removeValue()
-                    .addOnSuccessListener(unused -> {
-                        if (getActivity() != null) {
-                            getActivity()
-                                    .getOnBackPressedDispatcher()
-                                    .onBackPressed();
-                        }
-                    })
-                    .addOnFailureListener(e -> {
-                    });
-        });
-
-        btnFavorite.setOnClickListener(v -> {
-            if (FirebaseAuth.getInstance().getCurrentUser() == null) return;
-            String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-            DatabaseReference ref = FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(userId)
-                    .child("journals")
-                    .child(journalId);
-            isFavorite = !isFavorite;
-            ref.child("isFavorite").setValue(isFavorite);
-            updateFavoriteUI();
-        });
+        btnDelete.setOnClickListener(v -> new AlertDialog.Builder(requireContext())
+                .setTitle("Delete Journal")
+                .setMessage("Are you sure you want to delete this journal?")
+                .setPositiveButton("Delete", (dialog, which) -> deleteJournal())
+                .setNegativeButton("Cancel", null)
+                .show());
+        btnFavorite.setOnClickListener(v -> updateFavorite());
         return view;
     }
 
-    private void updateFavoriteUI() {
+    private void deleteJournal() {
+        if (FirebaseAuth.getInstance().getCurrentUser() == null) return;
+        getJournalReference().removeValue()
+                .addOnSuccessListener(unused -> {
+                    if (getActivity() != null) {
+                        getActivity().getOnBackPressedDispatcher().onBackPressed();
+                    }
+                })
+                .addOnFailureListener(error -> Toast.makeText(getContext(),
+                        "Failed to delete journal", Toast.LENGTH_SHORT).show());
+    }
 
+    private void updateFavorite() {
+        if (FirebaseAuth.getInstance().getCurrentUser() == null) return;
+        boolean newFavoriteValue = !isFavorite;
+        getJournalReference().child("isFavorite").setValue(newFavoriteValue)
+                .addOnSuccessListener(unused -> {
+                    isFavorite = newFavoriteValue;
+                    updateFavoriteUI();
+                })
+                .addOnFailureListener(error -> Toast.makeText(getContext(),
+                        "Failed to update favorite", Toast.LENGTH_SHORT).show());
+    }
+
+    private void updateFavoriteUI() {
         if (isFavorite) {
             btnFavorite.setText("Remove from favorites");
             btnFavorite.setCompoundDrawablesRelativeWithIntrinsicBounds(
@@ -92,42 +92,46 @@ public class JournalDetailFragment extends Fragment {
             );
         }
     }
+
     private void loadJournal() {
         if (FirebaseAuth.getInstance().getCurrentUser() == null) return;
-        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
-        DatabaseReference ref = FirebaseDatabase.getInstance()
-                .getReference("users")
-                .child(userId)
-                .child("journals")
-                .child(journalId);
-        ref.get().addOnSuccessListener(snapshot -> {
-            Journal j = snapshot.getValue(Journal.class);
-            isFavorite = j.isFavorite;
-            updateFavoriteUI();
-            if (j == null) return;
-            tvTitle.setText(j.title);
-            tvDate.setText(j.date);
-            tvContent.setText(j.content);
-            layoutThemes.removeAllViews();
-            if (j.themes != null && !j.themes.isEmpty()) {
-                tvNoThemes.setVisibility(View.GONE);
-                for (String theme : j.themes) {
-                    TextView chip = new TextView(getContext());
-                    chip.setText(theme);
-                    chip.setTextSize(11f);
-                    chip.setPadding(24, 12, 24, 12);
-                    Integer color = getThemeColor(theme);
-                    chip.setBackgroundResource(R.drawable.chip_unselected);
-                    chip.setBackgroundTintList(ColorStateList.valueOf(color));
-                    layoutThemes.addView(chip);
-                }
-            } else {
-                tvNoThemes.setVisibility(View.VISIBLE);
-            }
-        }).addOnFailureListener(e -> {
-
-        });
+        getJournalReference().get()
+                .addOnSuccessListener(snapshot -> {
+                    Journal journal = snapshot.getValue(Journal.class);
+                    if (journal == null) return;
+                    isFavorite = journal.isFavorite;
+                    updateFavoriteUI();
+                    tvTitle.setText(journal.title);
+                    tvDate.setText(journal.date);
+                    tvContent.setText(journal.content);
+                    layoutThemes.removeAllViews();
+                    if (journal.themes != null && !journal.themes.isEmpty()) {
+                        tvNoThemes.setVisibility(View.GONE);
+                        for (String theme : journal.themes) {
+                            TextView chip = new TextView(getContext());
+                            chip.setText(theme);
+                            chip.setTextSize(11f);
+                            chip.setPadding(24, 12, 24, 12);
+                            chip.setBackgroundResource(R.drawable.chip_unselected);
+                            chip.setBackgroundTintList(ColorStateList.valueOf(getThemeColor(theme)));
+                            layoutThemes.addView(chip);
+                        }
+                    } else {
+                        tvNoThemes.setVisibility(View.VISIBLE);
+                    }
+                })
+                .addOnFailureListener(error -> {
+                    if (!isAdded() || FirebaseAuth.getInstance().getCurrentUser() == null) return;
+                    Toast.makeText(getContext(), "Failed to load journal", Toast.LENGTH_SHORT).show();
+                });
     }
+
+    private DatabaseReference getJournalReference() {
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        return FirebaseDatabase.getInstance().getReference("users")
+                .child(userId).child("journals").child(journalId);
+    }
+
     private int getThemeColor(String theme) {
         switch (theme) {
             case "Stress": return Color.parseColor("#803040");

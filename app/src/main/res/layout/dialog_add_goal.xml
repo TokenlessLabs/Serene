@@ -168,6 +168,22 @@
         android:orientation="horizontal">
 
         <TextView
+            android:id="@+id/btnDeleteGoal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_button_outline"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="10dp"
+            android:text="Delete"
+            android:textColor="#803040"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
+        <TextView
             android:id="@+id/btnCancel"
             android:layout_width="0dp"
             android:layout_height="wrap_content"

@@ -10,12 +10,14 @@ import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.database.DatabaseReference;
 
+import java.util.Calendar;
 import java.util.List;
 
 public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.GoalViewHolder> {
@@ -55,7 +57,8 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.GoalViewHolder
             holder.tvGoalTime.setVisibility(View.GONE);
         }
         applyPriority(holder.tvPriority, goal.getPriority());
-        switch (goal.getStatus()) {
+        String status = goal.getStatus() == null ? "pending" : goal.getStatus();
+        switch (status) {
             case "completed":
                 holder.viewAccent.setBackgroundColor(Color.parseColor("#6058B0"));
                 holder.tvGoalTitle.setPaintFlags(
@@ -84,20 +87,31 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.GoalViewHolder
         holder.checkGoal.setOnCheckedChangeListener(null);
         holder.checkGoal.setChecked("completed".equals(goal.getStatus()));
         holder.itemView.setOnClickListener(v -> {
-            showEditDialog(goal, holder.getAdapterPosition());
+            int currentPosition = holder.getAdapterPosition();
+            if (currentPosition != RecyclerView.NO_POSITION) {
+                showEditDialog(goal, currentPosition);
+            }
         });
         holder.checkGoal.setOnCheckedChangeListener((buttonView, isChecked) -> {
             int pos = holder.getAdapterPosition();
             if (pos == RecyclerView.NO_POSITION) return;
             Goal g = goalList.get(pos);
+            String previousStatus = g.getStatus();
             String newStatus = isChecked ? "completed" : "pending";
-            g.setStatus(newStatus);
             if (goalsRef != null) {
                 goalsRef.child(g.getId())
                         .child("status")
-                        .setValue(newStatus);
+                        .setValue(newStatus)
+                        .addOnSuccessListener(unused -> {
+                            g.setStatus(newStatus);
+                            notifyItemChanged(pos);
+                        })
+                        .addOnFailureListener(error -> {
+                            g.setStatus(previousStatus);
+                            notifyItemChanged(pos);
+                            Toast.makeText(context, "Failed to update goal", Toast.LENGTH_SHORT).show();
+                        });
             }
-            notifyItemChanged(pos);
         });
     }
 
@@ -156,7 +170,9 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.GoalViewHolder
         TextView medium = dialogView.findViewById(R.id.priorityMedium);
         TextView high = dialogView.findViewById(R.id.priorityHigh);
         TextView dialogTitle = dialogView.findViewById(R.id.tvTitle);
+        TextView btnDeleteGoal = dialogView.findViewById(R.id.btnDeleteGoal);
         dialogTitle.setText("Edit Goal");
+        btnDeleteGoal.setVisibility(View.VISIBLE);
         etGoal.setText(goal.getTitle());
         final String[] selectedDate = {goal.getDate()};
         final String[] selectedTime = {goal.getTime()};
@@ -185,13 +201,25 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.GoalViewHolder
             updatePriorityUI(low, medium, high, "high");
         });
         tvDate.setOnClickListener(v -> {
+            Calendar initialDate = Calendar.getInstance();
+            if (selectedDate[0] != null && !selectedDate[0].isEmpty()) {
+                try {
+                    java.util.Date parsedDate = new java.text.SimpleDateFormat(
+                            "dd/MM/yyyy", java.util.Locale.getDefault()).parse(selectedDate[0]);
+                    if (parsedDate != null) initialDate.setTime(parsedDate);
+                } catch (java.text.ParseException ignored) {
+                }
+            }
             android.app.DatePickerDialog picker = new android.app.DatePickerDialog(
                     context,
                     (view, year, month, day) -> {
-                        selectedDate[0] = day + "/" + (month + 1) + "/" + year;
+                        selectedDate[0] = String.format(java.util.Locale.getDefault(),
+                                "%02d/%02d/%04d", day, month + 1, year);
                         tvDate.setText("📅 " + selectedDate[0]);
                     },
-                    2026, 0, 1
+                    initialDate.get(Calendar.YEAR),
+                    initialDate.get(Calendar.MONTH),
+                    initialDate.get(Calendar.DAY_OF_MONTH)
             );
             picker.show();
         });
@@ -209,18 +237,48 @@ public class GoalAdapter extends RecyclerView.Adapter<GoalAdapter.GoalViewHolder
         AlertDialog dialog = new AlertDialog.Builder(context)
                 .setView(dialogView)
                 .create();
+        btnDeleteGoal.setOnClickListener(v -> new AlertDialog.Builder(context)
+                .setTitle("Delete Goal")
+                .setMessage("Are you sure you want to delete this goal?")
+                .setPositiveButton("Delete", (confirmation, which) ->
+                        goalsRef.child(goal.getId()).removeValue()
+                                .addOnSuccessListener(unused -> dialog.dismiss())
+                                .addOnFailureListener(error -> Toast.makeText(context,
+                                        "Failed to delete goal", Toast.LENGTH_SHORT).show()))
+                .setNegativeButton("Cancel", null)
+                .show());
         dialogView.findViewById(R.id.btnSaveGoal).setOnClickListener(v -> {
-            goal.setTitle(etGoal.getText().toString());
-            goal.setDate(selectedDate[0]);
-            goal.setTime(selectedTime[0]);
-            goal.setPriority(selectedPriority[0]);
-            goalsRef.child(goal.getId()).setValue(goal);
-            notifyItemChanged(position);
-            dialog.dismiss();
+            String title = etGoal.getText().toString().trim();
+            if (title.isEmpty()) {
+                etGoal.setError("Enter a goal");
+                return;
+            }
+            String updatedStatus = getStatusForEditedGoal(
+                    goal.getStatus(), selectedDate[0], selectedTime[0]);
+            Goal updatedGoal = new Goal(goal.getId(), title, updatedStatus,
+                    selectedPriority[0], selectedDate[0], selectedTime[0]);
+            goalsRef.child(goal.getId()).setValue(updatedGoal)
+                    .addOnSuccessListener(unused -> dialog.dismiss())
+                    .addOnFailureListener(error ->
+                            Toast.makeText(context, "Failed to update goal", Toast.LENGTH_SHORT).show());
         });
         dialogView.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
         dialog.show();
         dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+    }
+    private String getStatusForEditedGoal(String currentStatus, String date, String time) {
+        if ("completed".equals(currentStatus)) return "completed";
+        if (date == null || date.isEmpty()) return "pending";
+        String dueTime = time == null || time.isEmpty() ? "23:59" : time;
+        try {
+            java.text.SimpleDateFormat format = new java.text.SimpleDateFormat(
+                    "dd/MM/yyyy HH:mm", java.util.Locale.getDefault());
+            format.setLenient(false);
+            java.util.Date dueDate = format.parse(date + " " + dueTime);
+            return dueDate != null && dueDate.before(new java.util.Date()) ? "overdue" : "pending";
+        } catch (java.text.ParseException ignored) {
+            return "pending";
+        }
     }
     private void updatePriorityUI(TextView low, TextView medium, TextView high, String selected) {
         low.setBackgroundResource(R.drawable.chip_unselected);

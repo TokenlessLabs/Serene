@@ -154,12 +154,14 @@ public class UserDetailsFragment extends Fragment {
 
     private void loadData() {
 
-        userRef.addValueEventListener(new ValueEventListener() {
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
 
-                TextView tvUsername = getView().findViewById(R.id.tvUsername);
-                TextView tvEmail = getView().findViewById(R.id.tvEmail);
+                View currentView = getView();
+                if (currentView == null) return;
+                TextView tvUsername = currentView.findViewById(R.id.tvUsername);
+                TextView tvEmail = currentView.findViewById(R.id.tvEmail);
 
                 String username = snapshot.child("username").getValue(String.class);
                 String email = snapshot.child("email").getValue(String.class);
