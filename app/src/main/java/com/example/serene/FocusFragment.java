@@ -12,6 +12,13 @@ import android.widget.TextView;
 import androidx.fragment.app.Fragment;
 
 public class FocusFragment extends Fragment {
+    private static final String STATE_REMAINING_MILLIS = "remaining_millis";
+    private static final String STATE_WORK_MINUTES = "work_minutes";
+    private static final String STATE_BREAK_MINUTES = "break_minutes";
+    private static final String STATE_SHORT_BREAK = "short_break";
+    private static final String STATE_CURRENT_MODE = "current_mode";
+    private static final String STATE_CONFIGURED = "session_configured";
+    private static final String STATE_RUNNING = "timer_running";
     private TextView tvTimer, tvModeLabel, tvSessionSummary;
     private ImageView btnPlayPause;
     private TextView btnReset, btnSkip, btnNewSession;
@@ -36,9 +43,26 @@ public class FocusFragment extends Fragment {
         btnReset = view.findViewById(R.id.btnReset);
         btnSkip = view.findViewById(R.id.btnSkip);
         btnNewSession = view.findViewById(R.id.btnNewSession);
-        remainingMillis = 25 * 60 * 1000L;
+        if (savedInstanceState == null) {
+            remainingMillis = 25 * 60 * 1000L;
+        } else {
+            remainingMillis = savedInstanceState.getLong(
+                    STATE_REMAINING_MILLIS, 25 * 60 * 1000L);
+            sessionWorkMin = savedInstanceState.getInt(STATE_WORK_MINUTES, 25);
+            sessionBreakMin = savedInstanceState.getInt(STATE_BREAK_MINUTES, 5);
+            useShortBreak = savedInstanceState.getBoolean(STATE_SHORT_BREAK, true);
+            currentMode = savedInstanceState.getString(STATE_CURRENT_MODE, "work");
+            sessionConfigured = savedInstanceState.getBoolean(STATE_CONFIGURED, false);
+            isRunning = savedInstanceState.getBoolean(STATE_RUNNING, false);
+            hasShownDialog = sessionConfigured;
+        }
         updateTimerDisplay(remainingMillis);
-        btnPlayPause.setImageResource(R.drawable.play);
+        tvModeLabel.setText(currentMode.equals("work") ? "work session"
+                : (useShortBreak ? "short break" : "long break"));
+        if (sessionConfigured) {
+            updateSessionSummary();
+        }
+        btnPlayPause.setImageResource(isRunning ? R.drawable.pause : R.drawable.play);
         btnPlayPause.setOnClickListener(v -> {
             if (!sessionConfigured) {
                 showSessionDialog();
@@ -74,6 +98,9 @@ public class FocusFragment extends Fragment {
             btnPlayPause.setImageResource(R.drawable.play);
             showSessionDialog();
         });
+        if (isRunning) {
+            startTimer();
+        }
         return view;
     }
     @Override
@@ -219,6 +246,17 @@ public class FocusFragment extends Fragment {
         String breakType = useShortBreak ? "short" : "long";
         tvSessionSummary.setText(sessionWorkMin + " min work  ·  "
                 + sessionBreakMin + " min " + breakType + " break");
+    }
+    @Override
+    public void onSaveInstanceState(@androidx.annotation.NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putLong(STATE_REMAINING_MILLIS, remainingMillis);
+        outState.putInt(STATE_WORK_MINUTES, sessionWorkMin);
+        outState.putInt(STATE_BREAK_MINUTES, sessionBreakMin);
+        outState.putBoolean(STATE_SHORT_BREAK, useShortBreak);
+        outState.putString(STATE_CURRENT_MODE, currentMode);
+        outState.putBoolean(STATE_CONFIGURED, sessionConfigured);
+        outState.putBoolean(STATE_RUNNING, isRunning);
     }
     @Override
     public void onDestroyView() {
