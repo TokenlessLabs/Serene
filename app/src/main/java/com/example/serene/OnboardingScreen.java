@@ -39,7 +39,6 @@ public class OnboardingScreen extends AppCompatActivity {
                 handler.postDelayed(this, DELAY);
             }
         };
-        handler.postDelayed(autoScrollRunnable, DELAY);
         viewPager.setCurrentItem(0, false);
         viewPager.post(() -> setupDots(0));
         viewPager.registerOnPageChangeCallback(new ViewPager2.OnPageChangeCallback() {
@@ -61,8 +60,13 @@ public class OnboardingScreen extends AppCompatActivity {
         }
     }
     @Override
-    protected void onDestroy() {
-        super.onDestroy();
+    protected void onStart() {
+        super.onStart();
+        handler.postDelayed(autoScrollRunnable, DELAY);
+    }
+    @Override
+    protected void onStop() {
         handler.removeCallbacks(autoScrollRunnable);
+        super.onStop();
     }
 }

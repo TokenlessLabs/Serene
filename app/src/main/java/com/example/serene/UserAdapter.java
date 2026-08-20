@@ -15,7 +15,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder> {
     private List<User> userList;
     private List<String> userIds;
@@ -49,14 +51,16 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
             builder.setTitle("Delete User");
             builder.setMessage("Are you sure you want to delete this user?");
             builder.setPositiveButton("Delete", (dialog, which) -> {
-                userRef.removeValue();
-                int pos = holder.getAdapterPosition();
-                if (pos != RecyclerView.NO_POSITION) {
-                    userList.remove(pos);
-                    userIds.remove(pos);
-                    notifyItemRemoved(pos);
-                }
-                Toast.makeText(v.getContext(), "User deleted", Toast.LENGTH_SHORT).show();
+                userRef.removeValue().addOnSuccessListener(unused -> {
+                    int pos = holder.getAdapterPosition();
+                    if (pos != RecyclerView.NO_POSITION) {
+                        userList.remove(pos);
+                        userIds.remove(pos);
+                        notifyItemRemoved(pos);
+                    }
+                    Toast.makeText(v.getContext(), "User data deleted", Toast.LENGTH_SHORT).show();
+                }).addOnFailureListener(error -> Toast.makeText(v.getContext(),
+                        "Failed to delete user data", Toast.LENGTH_SHORT).show());
             });
             builder.setNegativeButton("Cancel", (dialog, which) -> {
                 dialog.dismiss();
@@ -79,12 +83,17 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
             builder.setPositiveButton("Save", (dialog, which) -> {
                 String newUsername = etUsername.getText().toString().trim();
                 String newEmail = etEmail.getText().toString().trim();
-                userRef.child("username").setValue(newUsername);
-                userRef.child("email").setValue(newEmail);
-                user.username = newUsername;
-                user.email = newEmail;
-                notifyItemChanged(position);
-                Toast.makeText(v.getContext(), "User updated", Toast.LENGTH_SHORT).show();
+                Map<String, Object> updates = new HashMap<>();
+                updates.put("username", newUsername);
+                updates.put("email", newEmail);
+                userRef.updateChildren(updates).addOnSuccessListener(unused -> {
+                    user.username = newUsername;
+                    user.email = newEmail;
+                    int currentPosition = holder.getAdapterPosition();
+                    if (currentPosition != RecyclerView.NO_POSITION) notifyItemChanged(currentPosition);
+                    Toast.makeText(v.getContext(), "User profile updated", Toast.LENGTH_SHORT).show();
+                }).addOnFailureListener(error -> Toast.makeText(v.getContext(),
+                        "Failed to update user profile", Toast.LENGTH_SHORT).show());
             });
             builder.setNegativeButton("Cancel", null);
             builder.show();

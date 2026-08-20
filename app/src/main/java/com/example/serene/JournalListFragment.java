@@ -89,7 +89,6 @@ public class JournalListFragment extends Fragment {
         String userId = FirebaseAuth.getInstance()
                 .getCurrentUser()
                 .getUid();
-        Log.d(TAG, "Loading journals for user: " + userId);
         journalRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(userId)

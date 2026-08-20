@@ -33,6 +33,7 @@ public class AllGoalsFragment extends Fragment {
     private GoalAdapter goalAdapter;
     private final List<Goal> allGoals = new ArrayList<>();
     private DatabaseReference goalsRef;
+    private ValueEventListener goalsListener;
     public AllGoalsFragment() {}
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
@@ -58,7 +59,7 @@ public class AllGoalsFragment extends Fragment {
 
     private void loadGoals() {
         showLoading();
-        goalsRef.addValueEventListener(new ValueEventListener() {
+        goalsListener = new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot snapshot) {
                 allGoals.clear();
@@ -78,10 +79,12 @@ public class AllGoalsFragment extends Fragment {
             }
             @Override
             public void onCancelled(DatabaseError error) {
+                if (!isAdded() || FirebaseAuth.getInstance().getCurrentUser() == null) return;
                 showEmpty();
                 Toast.makeText(getContext(), "Failed to load goals", Toast.LENGTH_SHORT).show();
             }
-        });
+        };
+        goalsRef.addValueEventListener(goalsListener);
     }
 
     private void checkAndMarkOverdue(Goal goal) {
@@ -92,7 +95,7 @@ public class AllGoalsFragment extends Fragment {
             SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
             sdf.setLenient(false);
             Date due = sdf.parse(goal.getDate() + " " + time);
-            if (due != null && due.before(new Date())) {
+            if (due != null && due.before(new Date()) && !"overdue".equals(goal.getStatus())) {
                 goal.setStatus("overdue");
                 goalsRef.child(goal.getId()).child("status").setValue("overdue");
             }
@@ -115,5 +118,12 @@ public class AllGoalsFragment extends Fragment {
         progress.setVisibility(View.GONE);
         recyclerGoals.setVisibility(View.VISIBLE);
         layoutEmptyState.setVisibility(View.GONE);
+    }
+    @Override
+    public void onDestroyView() {
+        if (goalsRef != null && goalsListener != null) {
+            goalsRef.removeEventListener(goalsListener);
+        }
+        super.onDestroyView();
     }
 }

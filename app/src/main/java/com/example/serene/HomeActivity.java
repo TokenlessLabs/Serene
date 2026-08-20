@@ -33,10 +33,13 @@ import android.widget.RadioGroup;
 import androidx.appcompat.widget.SwitchCompat;
 
 public class HomeActivity extends AppCompatActivity {
+    private static final String STATE_SELECTED_NAV = "selected_nav";
     DrawerLayout drawerLayout;
     NavigationView navigationView;
     BottomNavigationView bottomNav;
     ImageView speaker;
+    int selectedNavigationId = R.id.nav_home;
+    boolean restoringSelection = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -52,8 +55,20 @@ public class HomeActivity extends AppCompatActivity {
         });
         drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
         setupListeners();
-        handleNavigation(R.id.nav_home);
-        setSelected(R.id.nav_home);
+        if (savedInstanceState == null) {
+            handleNavigation(R.id.nav_home);
+            setSelected(R.id.nav_home);
+        } else {
+            selectedNavigationId = savedInstanceState.getInt(STATE_SELECTED_NAV, R.id.nav_home);
+            restoringSelection = true;
+            if (selectedNavigationId == R.id.nav_settings) {
+                navigationView.setCheckedItem(selectedNavigationId);
+                clearBottomSelection();
+            } else {
+                setSelected(selectedNavigationId);
+            }
+            restoringSelection = false;
+        }
         findViewById(R.id.drawerHandle).setOnClickListener(v ->
                 drawerLayout.openDrawer(GravityCompat.START)
         );
@@ -68,9 +83,12 @@ public class HomeActivity extends AppCompatActivity {
 
         findViewById(R.id.fireIcon).setOnClickListener(v -> {
 
+            String uid = FirebaseAuth.getInstance().getUid();
+            if (uid == null) return;
+
             DatabaseReference ref = FirebaseDatabase.getInstance()
                     .getReference("users")
-                    .child(FirebaseAuth.getInstance().getUid())
+                    .child(uid)
                     .child("streak");
 
             ref.get().addOnSuccessListener(snapshot -> {
@@ -162,10 +180,10 @@ public class HomeActivity extends AppCompatActivity {
         );
     }
     private String getTrackName(int track) {
-        if (track == R.raw.rain)    return "Rain 🌧️";
+        if (track == R.raw.rain) return "Rain 🌧️";
         if (track == R.raw.ambient) return "Ambient 🌿";
-        if (track == R.raw.piano)   return "Piano 🎹";
-        if (track == R.raw.sad)     return "Sad 🌙";
+        if (track == R.raw.piano) return "Piano 🎹";
+        if (track == R.raw.sad) return "Sad 🌙";
         return "None";
     }
 
@@ -201,6 +219,7 @@ public class HomeActivity extends AppCompatActivity {
         });
         bottomNav.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
+            if (restoringSelection) return true;
             if (navigationView.getCheckedItem() == null ||
                     navigationView.getCheckedItem().getItemId() != id) {
                 navigationView.setCheckedItem(id);
@@ -215,6 +234,7 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void handleNavigation(int id) {
+        selectedNavigationId = id;
         Fragment fragment = null;
         if (id == R.id.nav_home) {
             fragment = new HomeFragment();
@@ -281,6 +301,11 @@ public class HomeActivity extends AppCompatActivity {
             clearBottomSelection();
             handleNavigation(id);
         }
+    }
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putInt(STATE_SELECTED_NAV, selectedNavigationId);
+        super.onSaveInstanceState(outState);
     }
     private void loadAvatar() {
         View header = navigationView.getHeaderView(0);

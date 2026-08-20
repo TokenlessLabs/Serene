@@ -3,6 +3,7 @@ package com.example.serene;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -18,6 +19,7 @@ import androidx.viewpager2.widget.ViewPager2;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -39,7 +41,15 @@ public class GoalsFragment extends Fragment {
         viewPager = view.findViewById(R.id.viewPager);
         tabLayout = view.findViewById(R.id.tabLayout);
         btnAddGoal = view.findViewById(R.id.btnAddGoal);
-        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            Intent intent = new Intent(requireContext(), Login.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            requireActivity().finish();
+            return;
+        }
+        String userId = currentUser.getUid();
         goalsRef = FirebaseDatabase.getInstance()
                 .getReference("users")
                 .child(userId)
@@ -121,8 +131,9 @@ public class GoalsFragment extends Fragment {
 
             goalsRef.child(id).setValue(
                     new Goal(id, text, "pending", selectedPriority, selectedDate, selectedTime)
-            );
-            dialog.dismiss();
+            ).addOnSuccessListener(unused -> dialog.dismiss())
+                    .addOnFailureListener(error -> Toast.makeText(getContext(),
+                            "Failed to add goal", Toast.LENGTH_SHORT).show());
         });
         dialogView.findViewById(R.id.btnCancel).setOnClickListener(v -> dialog.dismiss());
         dialog.show();

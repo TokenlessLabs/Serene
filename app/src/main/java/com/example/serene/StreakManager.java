@@ -3,6 +3,7 @@ package com.example.serene;
 import com.google.firebase.database.*;
 
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
@@ -42,8 +43,10 @@ public class StreakManager {
                     return;
                 }
 
+                Calendar yesterdayCalendar = Calendar.getInstance();
+                yesterdayCalendar.add(Calendar.DAY_OF_YEAR, -1);
                 String yesterday = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                        .format(new Date(System.currentTimeMillis() - 86400000));
+                        .format(yesterdayCalendar.getTime());
 
                 if (lastDate.equals(yesterday)) {
                     streak++;

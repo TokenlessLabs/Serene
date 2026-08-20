@@ -30,10 +30,16 @@ import com.google.android.gms.auth.api.signin.*;
 import com.google.android.gms.common.api.ApiException;
 import com.google.firebase.auth.GoogleAuthProvider;
 import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 
 import android.content.SharedPreferences;
 import android.content.Context;
 import android.widget.CheckBox;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class Login extends AppCompatActivity {
     private TextInputEditText etEmail, etPassword;
@@ -222,12 +228,50 @@ public class Login extends AppCompatActivity {
         auth.signInWithCredential(credential)
                 .addOnCompleteListener(this, task -> {
                     if (task.isSuccessful()) {
-                        Toast.makeText(this, "Google Login Successful", Toast.LENGTH_SHORT).show();
-                        startActivity(new Intent(this, HomeActivity.class));
-                        finish();
+                        FirebaseUser user = auth.getCurrentUser();
+                        if (user == null) {
+                            Toast.makeText(this, "Authentication Failed", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        boolean isNewUser = task.getResult().getAdditionalUserInfo() != null
+                                && task.getResult().getAdditionalUserInfo().isNewUser();
+                        ensureGoogleUserProfile(user, isNewUser);
                     } else {
                         Toast.makeText(this, "Authentication Failed", Toast.LENGTH_SHORT).show();
                     }
                 });
+    }
+
+    private void ensureGoogleUserProfile(FirebaseUser user, boolean isNewUser) {
+        DatabaseReference userRef = FirebaseDatabase.getInstance()
+                .getReference("users")
+                .child(user.getUid());
+        userRef.get().addOnCompleteListener(task -> {
+            Map<String, Object> updates = new HashMap<>();
+            boolean needsAvatar = isNewUser
+                    || !task.isSuccessful()
+                    || !task.getResult().hasChild("avatar");
+            if (!task.isSuccessful() || !task.getResult().hasChild("username")) {
+                String username = user.getDisplayName();
+                if (TextUtils.isEmpty(username)) username = "Serene User";
+                updates.put("username", username);
+            }
+            if (!task.isSuccessful() || !task.getResult().hasChild("email")) {
+                updates.put("email", user.getEmail());
+            }
+            if (updates.isEmpty()) {
+                openAfterGoogleLogin(needsAvatar);
+                return;
+            }
+            userRef.updateChildren(updates)
+                    .addOnCompleteListener(updateTask -> openAfterGoogleLogin(needsAvatar));
+        });
+    }
+
+    private void openAfterGoogleLogin(boolean needsAvatar) {
+        Toast.makeText(this, "Google Login Successful", Toast.LENGTH_SHORT).show();
+        Class<?> destination = needsAvatar ? AvatarSelectionActivity.class : HomeActivity.class;
+        startActivity(new Intent(this, destination));
+        finish();
     }
 }

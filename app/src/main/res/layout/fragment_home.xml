@@ -38,7 +38,7 @@
                         android:id="@+id/tvGreeting"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Good morning, User"
+                        android:text="Good morning,&#10;User"
                         android:textSize="25sp"
                         android:textStyle="bold"
                         android:textColor="#2E2A5E"/>

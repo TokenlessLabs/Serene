@@ -68,7 +68,7 @@ public class AdminDashboardFragment extends Fragment {
         tvEmpty.setVisibility(View.GONE);
         recyclerUsers.setVisibility(View.GONE);
 
-        usersRef.addValueEventListener(new ValueEventListener() {
+        usersRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
 
@@ -86,6 +86,7 @@ public class AdminDashboardFragment extends Fragment {
                 for (DataSnapshot userSnap : snapshot.getChildren()) {
 
                     String uid = userSnap.getKey();
+                    if (uid != null && uid.equals(auth.getUid())) continue;
                     String username = userSnap.child("username").getValue(String.class);
                     String email = userSnap.child("email").getValue(String.class);
 

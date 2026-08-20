@@ -12,7 +12,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class GoalsAdapter extends RecyclerView.Adapter<GoalsAdapter.VH> {
 
@@ -68,9 +70,13 @@ public class GoalsAdapter extends RecyclerView.Adapter<GoalsAdapter.VH> {
             int position = h.getAdapterPosition();
             if (position == RecyclerView.NO_POSITION) return;
 
-            ref.child(g.getId()).removeValue();
-            list.remove(position);
-            notifyItemRemoved(position);
+            ref.child(g.getId()).removeValue()
+                    .addOnSuccessListener(unused -> {
+                        int currentPosition = h.getAdapterPosition();
+                        if (currentPosition == RecyclerView.NO_POSITION) return;
+                        list.remove(currentPosition);
+                        notifyItemRemoved(currentPosition);
+                    });
         });
 
         h.edit.setOnClickListener(v -> {
@@ -115,20 +121,13 @@ public class GoalsAdapter extends RecyclerView.Adapter<GoalsAdapter.VH> {
                     .setView(layout)
                     .setPositiveButton("Update", (d, w) -> {
 
-                        ref.child(g.getId()).child("title")
-                                .setValue(title.getText().toString());
-
-                        ref.child(g.getId()).child("status")
-                                .setValue(status.getText().toString());
-
-                        ref.child(g.getId()).child("priority")
-                                .setValue(priority.getText().toString());
-
-                        ref.child(g.getId()).child("date")
-                                .setValue(date.getText().toString());
-
-                        ref.child(g.getId()).child("time")
-                                .setValue(time.getText().toString());
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("title", title.getText().toString());
+                        updates.put("status", status.getText().toString());
+                        updates.put("priority", priority.getText().toString());
+                        updates.put("date", date.getText().toString());
+                        updates.put("time", time.getText().toString());
+                        ref.child(g.getId()).updateChildren(updates);
                     })
                     .setNegativeButton("Cancel", null)
                     .show();
